@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
+import TransactionRow from "./TransactionRow";
+
+export type Transaction = {
+    id: number;
+    type: 'expense'|'revenue';
+    label: string;
+    amount: number;
+    date: Date;
+    notes: string;
+}
 
 const defaultFormValue = {
+  type: "expense",
   label: "",
   amount: 0,
   date: new Date(),
@@ -10,20 +21,30 @@ const defaultFormValue = {
 
 function App() {
   const [form, setForm] = useState(defaultFormValue);
-  const [transactions, setTransactions] = useState(() =>
+  const [transactions, setTransactions] = useState<Transaction[]>(() =>
     JSON.parse(localStorage.getItem("transactions") ?? "[]"),
   );
 
+  /**
+   * A chaque fois qu'on modifie `transactions`,
+   * on les sauvegarde dans le localStorage par effet de bord
+   */
+  useEffect(() => {
+    localStorage.setItem("transactions", JSON.stringify(transactions));
+  }, [transactions]);
+
   function createTransaction(e: React.SubmitEvent) {
     e.preventDefault();
+    const newTransaction = {
+      id: Date.now(),
+      ...form,
+    } as Transaction;
     // On ajoute les données du formulaire aux anciennes transactions et on tri
-    const newTransactions = [...transactions, form].sort((t1, t2) => {
-        return t1.date - t2.date > 0 ? -1 : 1
+    const newTransactions = [...transactions, newTransaction].sort((t1, t2) => {
+      return +t1.date - +t2.date > 0 ? -1 : 1;
     });
-    // On modifie la clé transactions du localStorage avec les nouvelles valeurs
-    localStorage.setItem("transactions", JSON.stringify(newTransactions));
     // On modifie le state avec les nouvelles valeurs aussi
-    setTransactions(newTransactions)
+    setTransactions(newTransactions);
     // On reset le form avec les valeurs pas défaut
     setForm(defaultFormValue);
   }
@@ -31,8 +52,30 @@ function App() {
   return (
     <>
       <form onSubmit={createTransaction}>
-        {JSON.stringify(form)}
-
+        <div>
+          <label htmlFor="expense">Dépense</label>
+          <input
+            id="expense"
+            type="radio"
+            name="type"
+            required
+            checked={form.type === "expense"}
+            onChange={() => {
+              setForm((form) => ({ ...form, type: "expense" }));
+            }}
+          />
+          <label htmlFor="revenue">Revenu</label>
+          <input
+            id="revenue"
+            type="radio"
+            name="type"
+            required
+            checked={form.type === "revenue"}
+            onChange={() => {
+              setForm((form) => ({ ...form, type: "revenue" }));
+            }}
+          />
+        </div>
         <div>
           <label htmlFor="label">Libelle</label>
           <input
@@ -77,12 +120,11 @@ function App() {
           <textarea
             name="notes"
             id="notes"
-            required
             value={form.notes}
             onChange={(e) => {
               setForm((form) => ({ ...form, notes: e.target.value }));
             }}
-          ></textarea>
+          />
         </div>
 
         <button>Créer la transaction</button>
@@ -91,21 +133,40 @@ function App() {
       <table>
         <thead>
           <tr>
+            <th>Type</th>
             <th>Libelle</th>
             <th>Montant €</th>
             <th>Date</th>
+            <th>Catégorie</th>
             <th>Notes</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {transactions.map((transaction) => {
             return (
-              <tr key={`${transaction.label}-${Number(new Date(transaction.date))}`}>
-                <td>{transaction.label}</td>
-                <td>{transaction.amount} €</td>
-                <td>{new Date(transaction.date).toDateString()}</td>
-                <td>{transaction.notes}</td>
-              </tr>
+              <TransactionRow
+                key={`${transaction.id}`}
+                transaction={transaction}
+                onTransactionChange={(data) => {
+                  setTransactions((oldTransactions) =>
+                    oldTransactions.map((oldTransaction) => {
+                      if (oldTransaction.id === transaction.id) {
+                        return {
+                          ...oldTransaction,
+                          ...data,
+                        };
+                      }
+                      return oldTransaction;
+                    }),
+                  );
+                }}
+                onTransactionDelete={(transactionId) => {
+                  setTransactions((oldTransactions) =>
+                    oldTransactions.filter((t) => t.id !== transactionId),
+                  );
+                }}
+              />
             );
           })}
         </tbody>
