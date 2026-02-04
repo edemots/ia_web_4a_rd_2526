@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { Transaction } from "./App";
 
 function TransactionRow({
   transaction,
   onTransactionChange,
   onTransactionDelete,
+  onCategorizeTransaction,
 }: {
   transaction: Transaction;
   onTransactionChange: (data: Omit<Transaction, "id">) => void;
   onTransactionDelete: (transactionId: number) => void;
+  onCategorizeTransaction: (transaction: Transaction) => Promise<void>;
 }) {
+  // Permet de définir l'état d'une transaction lecture/modification
   const [editing, setEditing] = useState(false);
+  // Permet de créer un état "d'attente" lorsqu'on catégorise une transaction
+  const [isSearchingCategory, startSearchingCategory] = useTransition();
+
   /**
    * On défini les valeurs par défaut du formulaire
    */
@@ -19,6 +25,7 @@ function TransactionRow({
     label: transaction.label, // string
     amount: Number(transaction.amount), // number
     date: new Date(transaction.date), // Date
+    category: transaction.category, // Category
     notes: transaction.notes, // string
   }));
 
@@ -29,6 +36,12 @@ function TransactionRow({
   function editTransaction() {
     onTransactionChange(form);
     setEditing(false);
+  }
+
+  function categorizeTransaction() {
+    startSearchingCategory(async () => {
+      await onCategorizeTransaction(transaction);
+    });
   }
 
   if (editing) {
@@ -106,7 +119,9 @@ function TransactionRow({
           />
         </td>
         <td>
-          <button onClick={editTransaction}>💾</button>
+          <button type="button" onClick={editTransaction}>
+            💾
+          </button>
         </td>
       </tr>
     );
@@ -119,12 +134,31 @@ function TransactionRow({
       <td>{transaction.amount} €</td>
       <td>{new Date(transaction.date).toDateString()}</td>
       <td>
-        <button>Catégoriser</button>
+        {transaction.category ? (
+          <p>
+            {transaction.category.icon} {transaction.category.name}
+          </p>
+        ) : (
+          <button
+            type="button"
+            disabled={isSearchingCategory}
+            onClick={categorizeTransaction}
+          >
+            Catégoriser
+          </button>
+        )}
       </td>
       <td>{transaction.notes}</td>
       <td>
-        <button onClick={() => setEditing(true)}>✏️</button>
-        <button onClick={() => onTransactionDelete(transaction.id)}>🗑️</button>
+        <button type="button" onClick={() => setEditing(true)}>
+          ✏️
+        </button>
+        <button
+          type="button"
+          onClick={() => onTransactionDelete(transaction.id)}
+        >
+          🗑️
+        </button>
       </td>
     </tr>
   );
