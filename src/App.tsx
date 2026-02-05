@@ -61,19 +61,18 @@ function App() {
     const req = await fetch("http://localhost:11434/api/generate", {
       method: "POST",
       body: JSON.stringify({
-        model: "gpt-oss:20b",
+        model: "expense_agent:latest",
         stream: false,
-        prompt: `Tu es un outil de catégorisation de transactions bancaires, ton rôle est d'attribuer une catégorie pertinente pour une transaction donnée écrite en JSON.
-
-          Attribue à cette transaction une catégorie : "${JSON.stringify(transaction)}".
-          Utilise des catégories de la vie courante.
-          Tu te baseras sur le libelle, le montant, le type de la transaction et les notes pour en déduire la catégorie.
-          Tu attribueras à la catégorie trouvée un emoji pertinent représentant cette dernière.
-
-          Base toi sur le contexte de mes 20 dernières transactions pour faire ta déduction et utiliser le plus possible les mêmes catégories pour des transactions similaires :
-          "${context}".
-
-          Renvoie uniquement du JSON pouvant être parsé sous le format suivant : { "name": string, "icon": string }, par exemple { "name": "Supermarché", "icon": "🛒" }`,
+        prompt: `Catégorise cette transaction "${JSON.stringify(transaction)}".
+          Aide toi de mes 20 dernières transactions pour faire ta déduction : "${context}".`,
+        format: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            icon: { type: "string" },
+          },
+          required: ["name", "icon"],
+        },
       }),
     });
     const res = await req.json();
